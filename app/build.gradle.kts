@@ -15,6 +15,10 @@ android {
         versionName = "1.0"
     }
 
+    dependencies {
+        implementation("androidx.webkit:webkit:1.13.0")
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
