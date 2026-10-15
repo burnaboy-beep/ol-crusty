@@ -1,0 +1,372 @@
+--- /mnt/data/MainActivity_original.kt	2026-10-15 09:25:37.274926979 +0000
++++ /mnt/data/MainActivity.kt	2026-10-15 09:26:11.602514493 +0000
+@@ -8,6 +8,10 @@
+ import android.view.Gravity
+ import android.view.View
+ import android.widget.Button
++import android.widget.EditText
++import android.text.InputType
++import android.app.Dialog
++import android.view.WindowManager
+ import android.widget.FrameLayout
+ import android.widget.LinearLayout
+ import android.widget.ScrollView
+@@ -119,15 +123,47 @@
+         when (screen) {
+             "mine" -> farmScreen()
+             "haul" -> leaderboardScreen()
++            "leaderboard-all" -> fullLeaderboardScreen()
+             "wallet" -> walletScreen()
++            "settings" -> settingsScreen()
++            "profile" -> profileScreen()
+         }
+     }
+ 
+     private fun farmScreen() {
+-        addText("Crusty", 30, cream, true)
+-        val handle = addText("@olcrusty     ♙ 0     ＋ Invite     ⚙", 12, muted)
+-        handle.setOnClickListener { toast("Profile and settings will be added in a later screen batch.") }
+-        gap(20)
++        val top = LinearLayout(this).apply {
++            orientation = LinearLayout.HORIZONTAL
++            gravity = Gravity.CENTER_VERTICAL
++        }
++        top.addView(text("Crusty", 30, cream, true),
++            LinearLayout.LayoutParams(0, -2, 1f))
++        val settings = text("⚙", 23, muted, true).apply {
++            gravity = Gravity.CENTER
++            setPadding(dp(10), dp(6), dp(4), dp(6))
++            contentDescription = "Settings"
++            setOnClickListener { showScreen("settings") }
++        }
++        top.addView(settings)
++        body.addView(top)
++
++        val handleRow = LinearLayout(this).apply {
++            orientation = LinearLayout.HORIZONTAL
++            gravity = Gravity.CENTER_VERTICAL
++        }
++        val handle = text("@olcrusty  ›", 12, muted).apply {
++            setPadding(0, dp(4), dp(12), dp(4))
++            setOnClickListener { showRankPopup() }
++        }
++        handleRow.addView(handle)
++        val invite = text("＋ Invite", 12, bg, true).apply {
++            gravity = Gravity.CENTER
++            setPadding(dp(12), dp(7), dp(12), dp(7))
++            background = rounded(cream, dp(18))
++            setOnClickListener { toast("Invite sharing will be connected in a later batch.") }
++        }
++        handleRow.addView(invite)
++        body.addView(handleRow)
++        gap(16)
+ 
+         val balance = card()
+         balance.orientation = LinearLayout.HORIZONTAL
+@@ -274,7 +310,17 @@
+         body.addView(cards)
+         gap(24)
+ 
+-        rowTitle("Colony Leaderboard", "See all")
++        val boardHeading = LinearLayout(this).apply {
++            orientation = LinearLayout.HORIZONTAL
++            gravity = Gravity.CENTER_VERTICAL
++        }
++        boardHeading.addView(text("Colony Leaderboard", 17, cream, true),
++            LinearLayout.LayoutParams(0, -2, 1f))
++        boardHeading.addView(text("See all  ›", 11, gold, true).apply {
++            setPadding(dp(8), dp(8), 0, dp(8))
++            setOnClickListener { showScreen("leaderboard-all") }
++        })
++        body.addView(boardHeading)
+         gap(10)
+ 
+         val board = card()
+@@ -334,6 +380,270 @@
+         gap(8)
+     }
+ 
++    private fun fullLeaderboardScreen() {
++        addBackHeading("Colony Leaderboard", "haul")
++        gap(8)
++        val search = EditText(this).apply {
++            hint = "Search colony members"
++            setHintTextColor(muted)
++            setTextColor(cream)
++            textSize = 14f
++            singleLine = true
++            inputType = InputType.TYPE_CLASS_TEXT
++            setPadding(dp(14), dp(10), dp(14), dp(10))
++            background = rounded(panelAlt, dp(14), line)
++        }
++        body.addView(search, LinearLayout.LayoutParams(-1, dp(48)))
++        gap(12)
++        val board = card()
++        val rows = listOf(
++            Triple("1", "reeftide", "12,480"),
++            Triple("2", "sandbar_kx", "10,910"),
++            Triple("3", "clawson", "9,225"),
++            Triple("4", "you (olcrusty)", "428.6"),
++            Triple("5", "tidepool_mo", "7,640"),
++            Triple("6", "shellshock22", "6,980"),
++            Triple("7", "briny_deep", "6,120"),
++            Triple("8", "hermit_hq", "5,875"),
++            Triple("9", "lowtide.lena", "5,410"),
++            Triple("10", "crabcake_jt", "4,990"),
++            Triple("11", "seasalt_ade", "4,320"),
++            Triple("12", "barnacle_bo", "3,875")
++        )
++        fun renderRows(query: String) {
++            board.removeAllViews()
++            val filtered = rows.filter { it.second.contains(query.trim(), ignoreCase = true) }
++            if (filtered.isEmpty()) {
++                board.addView(text("No colony member found", 13, muted).apply {
++                    gravity = Gravity.CENTER
++                    setPadding(dp(12), dp(20), dp(12), dp(20))
++                })
++            } else {
++                filtered.forEachIndexed { index, row ->
++                    val item = LinearLayout(this).apply {
++                        orientation = LinearLayout.HORIZONTAL
++                        gravity = Gravity.CENTER_VERTICAL
++                        setPadding(dp(12), dp(14), dp(12), dp(14))
++                        if (row.first == "4") setBackgroundColor(panelAlt)
++                    }
++                    item.addView(text(row.first, 14, if (row.first.toInt() <= 3) gold else muted, true),
++                        LinearLayout.LayoutParams(dp(32), -2))
++                    item.addView(text(row.second, 13, cream, row.first == "4"),
++                        LinearLayout.LayoutParams(0, -2, 1f))
++                    item.addView(text(row.third, 13, gold, true))
++                    board.addView(item)
++                    if (index < filtered.lastIndex) board.addView(divider())
++                }
++            }
++        }
++        renderRows("")
++        search.addTextChangedListener(object : android.text.TextWatcher {
++            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
++            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { renderRows(s?.toString().orEmpty()) }
++            override fun afterTextChanged(s: android.text.Editable?) {}
++        })
++        body.addView(board)
++        gap(12)
++        addText("Sample prototype data. Rankings are not live.", 11, muted)
++    }
++
++    private fun settingsScreen() {
++        addBackHeading("Settings", "mine")
++        gap(12)
++        val quick = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
++        quick.addView(quickSetting("📣", "Notices") { toast("Notices will be connected in a later batch.") }, weightParams())
++        quick.addView(spaceWidth(10))
++        quick.addView(quickSetting("🎧", "Support Center") { toast("Support Center will be connected in a later batch.") }, weightParams())
++        body.addView(quick)
++        gap(20)
++        sectionLabel("Settings")
++        val main = card().apply { setPadding(dp(4), dp(4), dp(4), dp(4)) }
++        settingsRow(main, "♙", "My Profile", "") { showScreen("profile") }
++        main.addView(divider())
++        settingsRow(main, "♧", "Notifications", "") { toast("Notification preferences will be added in a later batch.") }
++        body.addView(main)
++        gap(18)
++        sectionLabel("Language Settings")
++        val language = card().apply { setPadding(dp(4), dp(4), dp(4), dp(4)) }
++        settingsRow(language, "文", "Language", "English") { toast("English is the current language.") }
++        body.addView(language)
++        gap(18)
++        sectionLabel("More Settings")
++        val more = card().apply { setPadding(dp(4), dp(4), dp(4), dp(4)) }
++        settingsRow(more, "▤", "Terms and Policies", "") { toast("Terms and policies screen will be added in a later batch.") }
++        more.addView(divider())
++        settingsRow(more, "ⓘ", "App Version", "2.0.18", false) {}
++        more.addView(divider())
++        settingsRow(more, "↪", "Log Out", "") { toast("Log out is not connected in this prototype.") }
++        body.addView(more)
++        gap(18)
++        val delete = text("Delete Account", 12, muted).apply {
++            gravity = Gravity.CENTER
++            setPadding(dp(12), dp(10), dp(12), dp(10))
++            setOnClickListener { toast("Account deletion is not connected in this prototype.") }
++        }
++        body.addView(delete)
++    }
++
++    private fun profileScreen() {
++        addBackHeading("My Profile", "settings")
++        gap(18)
++        val avatar = TextView(this).apply {
++            text = "O"
++            textSize = 32f
++            gravity = Gravity.CENTER
++            setTextColor(bg)
++            typeface = Typeface.DEFAULT_BOLD
++            background = rounded(coral, dp(22))
++        }
++        val avatarWrap = LinearLayout(this).apply {
++            gravity = Gravity.CENTER
++            addView(avatar, LinearLayout.LayoutParams(dp(80), dp(80)))
++        }
++        body.addView(avatarWrap)
++        gap(28)
++        profileLabel("Nickname")
++        val nickname = LinearLayout(this).apply {
++            orientation = LinearLayout.HORIZONTAL
++            gravity = Gravity.CENTER_VERTICAL
++        }
++        nickname.addView(profileValue("Ol' Crusty"), LinearLayout.LayoutParams(0, dp(48), 1f))
++        nickname.addView(spaceWidth(8))
++        nickname.addView(actionButton("Edit", gold).apply {
++            setOnClickListener { toast("Nickname editing will be connected in a later batch.") }
++        }, LinearLayout.LayoutParams(dp(76), dp(48)))
++        body.addView(nickname)
++        gap(20)
++        profileLabel("My Invitation Code")
++        val code = card().apply {
++            orientation = LinearLayout.HORIZONTAL
++            gravity = Gravity.CENTER_VERTICAL
++        }
++        code.addView(text("olcrusty92", 14, cream), LinearLayout.LayoutParams(0, -2, 1f))
++        code.addView(text("▢", 18, muted).apply {
++            setPadding(dp(10), dp(4), dp(4), dp(4))
++            setOnClickListener { toast("Invitation code: olcrusty92") }
++        })
++        body.addView(code)
++        gap(20)
++        profileLabel("Email")
++        body.addView(profileValue("daddy.crab@gmail.com"))
++        gap(12)
++        addText("Profile details shown here are prototype data.", 11, muted)
++    }
++
++    private fun showRankPopup() {
++        val dialog = Dialog(this)
++        val sheet = LinearLayout(this).apply {
++            orientation = LinearLayout.VERTICAL
++            setPadding(dp(20), dp(12), dp(20), dp(22))
++            background = rounded(Color.rgb(16, 30, 44), dp(24), line)
++        }
++        val closeRow = LinearLayout(this).apply {
++            orientation = LinearLayout.HORIZONTAL
++            gravity = Gravity.END
++        }
++        closeRow.addView(text("✕", 18, muted).apply {
++            setPadding(dp(12), dp(4), 0, dp(8))
++            setOnClickListener { dialog.dismiss() }
++        })
++        sheet.addView(closeRow)
++        sheet.addView(text("@olcrusty", 18, cream, true).apply {
++            gravity = Gravity.CENTER
++        })
++        gapInside(sheet, 16)
++        val rows = listOf(
++            "♛" to ("My Rank" to "Hatchling (1)"),
++            "♧" to ("Friends to rank up" to "3"),
++            "↗" to ("Current Mining Power" to "x1.0"),
++            "🚀" to ("Next Rank Mining Power" to "x1.2")
++        )
++        rows.forEachIndexed { index, entry ->
++            val row = LinearLayout(this).apply {
++                orientation = LinearLayout.HORIZONTAL
++                gravity = Gravity.CENTER_VERTICAL
++                setPadding(dp(12), dp(14), dp(12), dp(14))
++                background = rounded(panelAlt, dp(14))
++            }
++            row.addView(text(entry.first, 16, gold), LinearLayout.LayoutParams(dp(30), -2))
++            row.addView(text(entry.second.first, 12, cream), LinearLayout.LayoutParams(0, -2, 1f))
++            row.addView(text(entry.second.second, 12, cream, true))
++            sheet.addView(row)
++            if (index < rows.lastIndex) gapInside(sheet, 8)
++        }
++        gapInside(sheet, 16)
++        sheet.addView(actionButton("Invite Friends", gold).apply {
++            setOnClickListener {
++                dialog.dismiss()
++                toast("Invite sharing will be connected in a later batch.")
++            }
++        }, LinearLayout.LayoutParams(-1, dp(48)))
++        dialog.setContentView(sheet)
++        dialog.window?.apply {
++            setBackgroundDrawableResource(android.R.color.transparent)
++            setLayout(-1, -2)
++            setGravity(Gravity.BOTTOM)
++            addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
++            attributes = attributes.apply { dimAmount = 0.65f }
++        }
++        dialog.show()
++        dialog.window?.setLayout(-1, -2)
++        dialog.window?.setGravity(Gravity.BOTTOM)
++    }
++
++    private fun addBackHeading(title: String, destination: String) {
++        val row = LinearLayout(this).apply {
++            orientation = LinearLayout.HORIZONTAL
++            gravity = Gravity.CENTER_VERTICAL
++        }
++        row.addView(text("‹", 30, cream, true).apply {
++            setPadding(0, 0, dp(12), 0)
++            setOnClickListener { showScreen(destination) }
++        })
++        row.addView(text(title, 25, cream, true))
++        body.addView(row)
++    }
++
++    private fun quickSetting(icon: String, label: String, action: () -> Unit): LinearLayout {
++        val item = card().apply {
++            gravity = Gravity.CENTER
++            setOnClickListener { action() }
++        }
++        item.addView(text(icon, 22, gold))
++        gapInside(item, 8)
++        item.addView(text(label, 12, cream, true))
++        return item
++    }
++
++    private fun sectionLabel(label: String) {
++        addText(label.uppercase(), 11, muted, true)
++        gap(8)
++    }
++
++    private fun settingsRow(parent: LinearLayout, icon: String, label: String, value: String, showChevron: Boolean = true, action: () -> Unit) {
++        val row = LinearLayout(this).apply {
++            orientation = LinearLayout.HORIZONTAL
++            gravity = Gravity.CENTER_VERTICAL
++            setPadding(dp(12), dp(14), dp(12), dp(14))
++            setOnClickListener { action() }
++        }
++        row.addView(text(icon, 17, gold), LinearLayout.LayoutParams(dp(34), -2))
++        row.addView(text(label, 13, cream), LinearLayout.LayoutParams(0, -2, 1f))
++        if (value.isNotEmpty()) row.addView(text(value, 12, muted))
++        if (showChevron) row.addView(text("›", 20, muted).apply { setPadding(dp(8), 0, 0, 0) })
++        parent.addView(row)
++    }
++
++    private fun profileLabel(label: String) {
++        addText(label, 12, muted)
++        gap(7)
++    }
++
++    private fun profileValue(value: String): TextView = text(value, 14, cream).apply {
++        setPadding(dp(14), dp(14), dp(14), dp(14))
++        background = rounded(panelAlt, dp(12))
++    }
++
+     private fun walletScreen() {
+         addText("Wallet", 30, cream, true)
+         gap(5)
+@@ -517,6 +827,16 @@
+         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+     }
+ 
++    @Deprecated("Deprecated in Android API; retained for compatibility with this Activity")
++    override fun onBackPressed() {
++        when (activeScreen) {
++            "profile" -> showScreen("settings")
++            "settings" -> showScreen("mine")
++            "leaderboard-all" -> showScreen("haul")
++            else -> super.onBackPressed()
++        }
++    }
++
+     override fun onDestroy() {
+         handler.removeCallbacksAndMessages(null)
+         super.onDestroy()
